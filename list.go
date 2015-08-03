@@ -13,7 +13,7 @@ type listState int
 
 const (
 	lsInitial listState = iota
-	lsCreated
+	lsIncomplete
 	lsCompleted
 )
 
@@ -61,7 +61,7 @@ func (l *list) applyCreated(e listCreated) []event {
 	}
 	l.id = e.id
 	l.name = e.name
-	l.state = lsCreated
+	l.state = lsIncomplete
 	return []event{e}
 }
 
