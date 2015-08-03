@@ -1,7 +1,5 @@
 package todo
 
-import "time"
-
 // receives Commands and routes it to the appropriate aggregate
 type listService struct {
 	store eventStore
@@ -46,11 +44,9 @@ func (s *listService) UncheckItem(list, item uuid) error {
 
 type list struct {
 	id    uuid
-	state struct {
-		name  string
-		items []item
-	}
-	// created -> incomplete -> complete
+	name  string
+	items []item
+	//state created -> incomplete -> complete
 }
 
 func newList() *list {
@@ -69,7 +65,7 @@ func (l *list) applyHistory([]event) {}
 func (l *list) apply(event) []event  { return nil }
 
 func (l *list) complete() bool {
-	for _, i := range l.state.items {
+	for _, i := range l.items {
 		if !i.checked {
 			return false
 		}
@@ -105,14 +101,12 @@ func newCreateList(name string) createList {
 type listCreated struct {
 	id   uuid
 	name string
-	when time.Time
 }
 
 func newListCreated(command createList) listCreated {
 	return listCreated{
 		id:   command.id,
 		name: command.name,
-		when: time.Now(),
 	}
 }
 

@@ -7,18 +7,21 @@ func TestListCreate(t *testing.T) {
 	command := newCreateList("test")
 	events := list.Handle(command)
 
-	if len(events) != 1 {
-		t.Error("want 1 event")
+	if !eventsMatch(events, newListCreated(command)) {
+		t.Error("events not equal")
+	}
+}
+
+func eventsMatch(subject []event, expected ...event) bool {
+	if len(subject) != len(expected) {
+		return false
 	}
 
-	event, ok := events[0].(listCreated)
-	if !ok {
-		t.Error("want", listCreated{})
-		t.Error("got ", event)
+	for i, e := range expected {
+		if subject[i] != e {
+			return false
+		}
 	}
 
-	if event.name != "test" {
-		t.Error("want", "test")
-		t.Error("got ", event.name)
-	}
+	return true
 }
