@@ -48,8 +48,16 @@ type list struct {
 	id    uuid
 	name  string
 	items []item
-	//state created -> incomplete -> complete
+	state listState
 }
+
+type listState int
+
+const (
+	lsInitial listState = iota
+	lsCreated
+	lsCompleted
+)
 
 func newList(history ...event) *list {
 	l := &list{}
@@ -66,7 +74,7 @@ func (l *list) Handle(c command) []event {
 	case checkItem:
 		return l.apply(command.Event())
 	default:
-		panic("unknown command")
+		panic(fmt.Sprintf("unknown command %#v", command))
 	}
 }
 
@@ -79,8 +87,7 @@ func (l *list) apply(e event) []event {
 	case itemChecked:
 		return l.applyItemChecked(event)
 	default:
-		fmt.Printf("%#v", event)
-		panic("unknown event")
+		panic(fmt.Sprintf("unknown event %#v", event))
 	}
 }
 
@@ -91,8 +98,12 @@ func (l *list) applyHistory(history []event) {
 }
 
 func (l *list) applyCreated(e listCreated) []event {
+	if l.state != lsInitial {
+		panic("list already created")
+	}
 	l.id = e.id
 	l.name = e.name
+	l.state = lsCreated
 	return []event{e}
 }
 
@@ -105,20 +116,38 @@ func (l *list) applyItemAdded(e itemAdded) []event {
 }
 
 func (l *list) applyItemChecked(e itemChecked) []event {
-	for _, i := range l.items {
-		if i.id == e.item {
-			if i.checked {
-				panic("item already checked")
-			}
-			i.checked = true
-		}
-	}
+	l.checkItem(e.item)
+	return l.checkCompleted(e)
+}
+
+func (l *list) applyCompleted(e listCompleted) []event {
+	l.state = lsCompleted
 	return []event{e}
 }
 
+func (l *list) checkCompleted(e itemChecked) []event {
+	if l.complete() {
+		return []event{e, newListCompleted(l.id)}
+	} else {
+		return []event{e}
+	}
+}
+
+func (l *list) checkItem(item uuid) {
+	for i, current := range l.items {
+		if current.id == item {
+			if current.checked {
+				panic("item already checked")
+			}
+			current.checked = true
+			l.items[i] = current
+		}
+	}
+}
+
 func (l *list) complete() bool {
-	for _, i := range l.items {
-		if !i.checked {
+	for _, current := range l.items {
+		if !current.checked {
 			return false
 		}
 	}
@@ -159,6 +188,7 @@ func newCreateList(name string) createList {
 	if name == "" {
 		panic("name can't be blank")
 	}
+
 	return createList{
 		id:   newID(),
 		name: name,
@@ -259,10 +289,30 @@ func newItemChecked(list, item uuid) itemChecked {
 	}
 }
 
-type uncheckItem struct{}
-type itemUnchecked struct{}
+type uncheckItem struct {
+	list uuid
+	item uuid
+}
 
-type removeItem struct{}
-type itemRemoved struct{}
+type itemUnchecked struct {
+	list uuid
+	item uuid
+}
 
-type listCompleted struct{}
+type removeItem struct {
+	list uuid
+	item uuid
+}
+
+type itemRemoved struct {
+	list uuid
+	item uuid
+}
+
+type listCompleted struct {
+	list uuid
+}
+
+func newListCompleted(list uuid) listCompleted {
+	return listCompleted{list: list}
+}

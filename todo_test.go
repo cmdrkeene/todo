@@ -2,7 +2,7 @@ package todo
 
 import "testing"
 
-func TestListCheckItem(t *testing.T) {
+func TestListCheck(t *testing.T) {
 	list := newList(
 		newListCreated("a", "test"),
 		newItemAdded("a", "b", "Buy Milk"),
@@ -11,14 +11,20 @@ func TestListCheckItem(t *testing.T) {
 
 	events := list.Handle(command)
 
-	if !eventsMatch(events, command.Event()) {
+	checked := command.Event()
+	completed := newListCompleted(list.id)
+	if !eventsMatch(events, checked, completed) {
 		gotWant(t, events, command.Event())
+	}
+
+	if !list.complete() {
+		t.Error("list should be complete")
 	}
 }
 
-func TestListUncheckItem(t *testing.T) {}
+func TestListUncheck(t *testing.T) {}
 
-func TestListAddItem(t *testing.T) {
+func TestListAdd(t *testing.T) {
 	list := newList(
 		newListCreated("a", "test"),
 	)

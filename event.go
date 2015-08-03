@@ -27,6 +27,11 @@ type eventStore interface {
 // is equal to or greater than our newly incremented version
 // it's simpler to keep timing off the raw event structs
 // internal store should use a container
+type eventRecord struct {
+	eventID   uuid
+	eventType string
+	event     event
+}
 
 type eventBus interface {
 	Publish(event)
