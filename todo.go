@@ -2,48 +2,6 @@ package todo
 
 import "fmt"
 
-// receives Commands and routes it to the appropriate aggregate
-type listService struct {
-	store eventStore
-}
-
-func (s *listService) Create(name string) (uuid, error) {
-	list := &list{}
-	s.store.Add(
-		list.Handle(
-			&createList{
-				name: name,
-				id:   newID(),
-			},
-		),
-	)
-	return list.id, nil
-}
-
-func (s *listService) get(list uuid) *list {
-	return nil
-}
-
-func (s *listService) ChangeName(list uuid, name string) error {
-	return nil
-}
-
-func (s *listService) AddItem(list uuid, title string) (uuid, error) {
-	return "", nil
-}
-
-func (s *listService) RemoveItem(list, item uuid) error {
-	return nil
-}
-
-func (s *listService) CheckItem(list, item uuid) error {
-	return nil
-}
-
-func (s *listService) UncheckItem(list, item uuid) error {
-	return nil
-}
-
 type list struct {
 	id    uuid
 	name  string
