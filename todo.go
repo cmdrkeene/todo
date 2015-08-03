@@ -1,5 +1,7 @@
 package todo
 
+import "fmt"
+
 // receives Commands and routes it to the appropriate aggregate
 type listService struct {
 	store eventStore
@@ -61,6 +63,8 @@ func (l *list) Handle(c command) []event {
 		return l.apply(command.Event())
 	case addItem:
 		return l.apply(command.Event())
+	case checkItem:
+		return l.apply(command.Event())
 	default:
 		panic("unknown command")
 	}
@@ -72,7 +76,10 @@ func (l *list) apply(e event) []event {
 		return l.applyCreated(event)
 	case itemAdded:
 		return l.applyItemAdded(event)
+	case itemChecked:
+		return l.applyItemChecked(event)
 	default:
+		fmt.Printf("%#v", event)
 		panic("unknown event")
 	}
 }
@@ -94,6 +101,18 @@ func (l *list) applyItemAdded(e itemAdded) []event {
 		l.items,
 		newItem(e.item, e.title),
 	)
+	return []event{e}
+}
+
+func (l *list) applyItemChecked(e itemChecked) []event {
+	for _, i := range l.items {
+		if i.id == e.item {
+			if i.checked {
+				panic("item already checked")
+			}
+			i.checked = true
+		}
+	}
 	return []event{e}
 }
 
@@ -208,8 +227,37 @@ func newItemAdded(list, item uuid, title string) itemAdded {
 	}
 }
 
-type checkItem struct{}
-type itemChecked struct{}
+type checkItem struct {
+	list uuid
+	item uuid
+}
+
+func (command checkItem) AggregateID() uuid {
+	return command.list
+}
+
+func (command checkItem) Event() event {
+	return newItemChecked(command.list, command.item)
+}
+
+func newCheckItem(list, item uuid) checkItem {
+	return checkItem{
+		item: item,
+		list: list,
+	}
+}
+
+type itemChecked struct {
+	list uuid
+	item uuid
+}
+
+func newItemChecked(list, item uuid) itemChecked {
+	return itemChecked{
+		item: item,
+		list: list,
+	}
+}
 
 type uncheckItem struct{}
 type itemUnchecked struct{}

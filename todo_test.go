@@ -2,16 +2,32 @@ package todo
 
 import "testing"
 
+func TestListCheckItem(t *testing.T) {
+	list := newList(
+		newListCreated("a", "test"),
+		newItemAdded("a", "b", "Buy Milk"),
+	)
+	command := newCheckItem(list.id, list.items[0].id)
+
+	events := list.Handle(command)
+
+	if !eventsMatch(events, command.Event()) {
+		gotWant(t, events, command.Event())
+	}
+}
+
+func TestListUncheckItem(t *testing.T) {}
+
 func TestListAddItem(t *testing.T) {
 	list := newList(
-		newListCreated("1", "test"),
+		newListCreated("a", "test"),
 	)
 	command := newAddItem(list.id, "Buy Milk")
 
 	events := list.Handle(command)
 
 	if !eventsMatch(events, command.Event()) {
-		wantGot(t, command.Event(), events)
+		gotWant(t, events, command.Event())
 	}
 }
 
@@ -21,7 +37,7 @@ func TestListCreate(t *testing.T) {
 	events := newList().Handle(command)
 
 	if !eventsMatch(events, command.Event()) {
-		wantGot(t, command.Event(), events)
+		gotWant(t, events, command.Event())
 	}
 }
 
@@ -39,7 +55,7 @@ func eventsMatch(subject []event, expected ...event) bool {
 	return true
 }
 
-func wantGot(t *testing.T, want, got interface{}) {
-	t.Error("want", want)
+func gotWant(t *testing.T, got, want interface{}) {
 	t.Error("got ", got)
+	t.Error("want", want)
 }
