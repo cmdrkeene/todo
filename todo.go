@@ -49,20 +49,53 @@ type list struct {
 	//state created -> incomplete -> complete
 }
 
-func newList() *list {
-	return &list{}
+func newList(history ...event) *list {
+	l := &list{}
+	l.applyHistory(history)
+	return l
 }
 
 func (l *list) Handle(c command) []event {
 	switch command := c.(type) {
 	case createList:
-		return []event{newListCreated(command)}
+		return l.apply(command.Event())
+	case addItem:
+		return l.apply(command.Event())
 	default:
 		panic("unknown command")
 	}
 }
-func (l *list) applyHistory([]event) {}
-func (l *list) apply(event) []event  { return nil }
+
+func (l *list) apply(e event) []event {
+	switch event := e.(type) {
+	case listCreated:
+		return l.applyCreated(event)
+	case itemAdded:
+		return l.applyItemAdded(event)
+	default:
+		panic("unknown event")
+	}
+}
+
+func (l *list) applyHistory(history []event) {
+	for _, e := range history {
+		l.apply(e)
+	}
+}
+
+func (l *list) applyCreated(e listCreated) []event {
+	l.id = e.id
+	l.name = e.name
+	return []event{e}
+}
+
+func (l *list) applyItemAdded(e itemAdded) []event {
+	l.items = append(
+		l.items,
+		newItem(e.item, e.title),
+	)
+	return []event{e}
+}
 
 func (l *list) complete() bool {
 	for _, i := range l.items {
@@ -79,6 +112,14 @@ type item struct {
 	checked bool
 }
 
+func newItem(id uuid, title string) item {
+	return item{
+		id:      id,
+		title:   title,
+		checked: false,
+	}
+}
+
 type createList struct {
 	id   uuid
 	name string
@@ -86,6 +127,13 @@ type createList struct {
 
 func (c createList) AggregateID() uuid {
 	return c.id
+}
+
+func (c createList) Event() event {
+	return newListCreated(
+		c.id,
+		c.name,
+	)
 }
 
 func newCreateList(name string) createList {
@@ -103,10 +151,10 @@ type listCreated struct {
 	name string
 }
 
-func newListCreated(command createList) listCreated {
+func newListCreated(id uuid, name string) listCreated {
 	return listCreated{
-		id:   command.id,
-		name: command.name,
+		id:   id,
+		name: name,
 	}
 }
 
@@ -120,8 +168,45 @@ type listRenamed struct{}
 type deleteList struct{}
 type listDeleted struct{}
 
-type addItem struct{}
-type itemAdded struct{}
+type addItem struct {
+	list  uuid
+	item  uuid
+	title string
+}
+
+func (command addItem) AggregateID() uuid {
+	return command.list
+}
+
+func (command addItem) Event() event {
+	return newItemAdded(
+		command.list,
+		command.item,
+		command.title,
+	)
+}
+
+func newAddItem(list uuid, title string) addItem {
+	return addItem{
+		list:  list,
+		item:  newID(),
+		title: title,
+	}
+}
+
+type itemAdded struct {
+	list  uuid
+	item  uuid
+	title string
+}
+
+func newItemAdded(list, item uuid, title string) itemAdded {
+	return itemAdded{
+		list:  list,
+		item:  item,
+		title: title,
+	}
+}
 
 type checkItem struct{}
 type itemChecked struct{}
