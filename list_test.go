@@ -81,13 +81,13 @@ func matchEvents(t *testing.T, got []event, want ...event) {
 	}
 }
 
-func eventsMatch(subject []event, expected ...event) bool {
-	if len(subject) != len(expected) {
+func eventsMatch(got []event, want ...event) bool {
+	if len(got) != len(want) {
 		return false
 	}
 
-	for i, e := range expected {
-		if subject[i] != e {
+	for i, e := range want {
+		if got[i] != e {
 			return false
 		}
 	}
