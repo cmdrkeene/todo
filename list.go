@@ -142,13 +142,13 @@ func (c createList) Event() event {
 	)
 }
 
-func newCreateList(name string) createList {
+func newCreateList(id uuid, name string) createList {
 	if name == "" {
 		panic("name can't be blank")
 	}
 
 	return createList{
-		id:   newID(),
+		id:   id,
 		name: name,
 	}
 }
@@ -193,10 +193,10 @@ func (command addItem) Event() event {
 	)
 }
 
-func newAddItem(list uuid, title string) addItem {
+func newAddItem(list, item uuid, title string) addItem {
 	return addItem{
 		list:  list,
-		item:  newID(),
+		item:  item,
 		title: title,
 	}
 }

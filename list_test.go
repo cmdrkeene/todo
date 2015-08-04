@@ -2,48 +2,82 @@ package todo
 
 import "testing"
 
+// func TestListUncheck(t *testing.T) {
+// 	// given
+// 	list := newList(
+// 		newListCreated("a", "test"),
+// 		newItemAdded("a", "b", "Buy Milk"),
+// 		newItemChecked("a", "b"),
+// 	)
+// 	command := newUncheckItem("a", "b")
+
+// 	// when
+// 	events := list.Handle(command)
+
+// 	// then
+
+// }
+
 func TestListCheck(t *testing.T) {
+	// given
 	list := newList(
 		newListCreated("a", "test"),
 		newItemAdded("a", "b", "Buy Milk"),
 	)
-	command := newCheckItem(list.id, list.items[0].id)
 
-	events := list.Handle(command)
+	// when
+	events := list.Handle(
+		newCheckItem("a", "b"),
+	)
 
-	checked := command.Event()
-	completed := newListCompleted(list.id)
-	if !eventsMatch(events, checked, completed) {
-		gotWant(t, events, command.Event())
-	}
-
-	if !list.complete() {
-		t.Error("list should be complete")
-	}
+	// then
+	matchEvents(
+		t,
+		events,
+		newItemChecked("a", "b"),
+		newListCompleted("a"),
+	)
 }
 
-func TestListUncheck(t *testing.T) {}
-
 func TestListAdd(t *testing.T) {
+	// given
 	list := newList(
 		newListCreated("a", "test"),
 	)
-	command := newAddItem(list.id, "Buy Milk")
 
-	events := list.Handle(command)
+	// when
+	events := list.Handle(
+		newAddItem("a", "b", "Buy Milk"),
+	)
 
-	if !eventsMatch(events, command.Event()) {
-		gotWant(t, events, command.Event())
-	}
+	// then
+	matchEvents(
+		t,
+		events,
+		newItemAdded("a", "b", "Buy Milk"),
+	)
 }
 
 func TestListCreate(t *testing.T) {
-	command := newCreateList("test")
+	// given
+	list := newList()
 
-	events := newList().Handle(command)
+	// when
+	events := list.Handle(
+		newCreateList("a", "test"),
+	)
 
-	if !eventsMatch(events, command.Event()) {
-		gotWant(t, events, command.Event())
+	// then
+	matchEvents(
+		t,
+		events,
+		newListCreated("a", "test"),
+	)
+}
+
+func matchEvents(t *testing.T, got []event, want ...event) {
+	if !eventsMatch(got, want...) {
+		gotWant(t, got, want)
 	}
 }
 
