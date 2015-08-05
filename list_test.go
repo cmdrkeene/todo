@@ -2,21 +2,28 @@ package todo
 
 import "testing"
 
-// func TestListUncheck(t *testing.T) {
-// 	// given
-// 	list := newList(
-// 		newListCreated("a", "test"),
-// 		newItemAdded("a", "b", "Buy Milk"),
-// 		newItemChecked("a", "b"),
-// 	)
-// 	command := newUncheckItem("a", "b")
+func TestListUncheck(t *testing.T) {
+	// given
+	list := newList(
+		newListCreated("a", "test"),
+		newItemAdded("a", "b", "Buy Milk"),
+		newItemChecked("a", "b"),
+		newListCompleted("a"),
+	)
 
-// 	// when
-// 	events := list.Handle(command)
+	// when
+	events := list.Handle(
+		newUncheckItem("a", "b"),
+	)
 
-// 	// then
-
-// }
+	// then
+	matchEvents(
+		t,
+		events,
+		newItemUnchecked("a", "b"),
+		newListUncompleted("a"),
+	)
+}
 
 func TestListCheck(t *testing.T) {
 	// given
@@ -96,6 +103,6 @@ func eventsMatch(got []event, want ...event) bool {
 }
 
 func gotWant(t *testing.T, got, want interface{}) {
-	t.Error("got ", got)
-	t.Error("want", want)
+	t.Errorf("got  %#v", got)
+	t.Errorf("want %#v", want)
 }

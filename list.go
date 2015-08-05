@@ -3,113 +3,160 @@ package todo
 import "fmt"
 
 type list struct {
-	id    uuid
-	name  string
-	items []item
-	state listState
+	id           uuid
+	name         string
+	items        []item
+	stateMachine *listStateMachine
 }
-
-type listState int
-
-const (
-	lsInitial listState = iota
-	lsIncomplete
-	lsCompleted
-)
 
 func newList(history ...event) *list {
 	l := &list{}
+	l.stateMachine = newListStateMachine()
 	l.applyHistory(history)
 	return l
 }
 
-func (l *list) Handle(c command) []event {
+func (l *list) Handle(command command) (events []event) {
+	return l.applyHistory(l.dispatch(command))
+}
+
+func (l *list) dispatch(c command) []event {
 	switch command := c.(type) {
-	case createList:
-		return l.apply(command.Event())
 	case addItem:
-		return l.apply(command.Event())
+		return l.handleAddItem(command)
 	case checkItem:
-		return l.apply(command.Event())
+		return l.handleCheckItem(command)
+	case createList:
+		return l.handleCreateList(command)
+	case uncheckItem:
+		return l.handleUncheckItem(command)
 	default:
 		panic(fmt.Sprintf("unknown command %#v", command))
 	}
 }
 
-func (l *list) apply(e event) []event {
+func (l *list) handleUncheckItem(command uncheckItem) []event {
+	events := []event{
+		newItemUnchecked(command.list, command.item),
+	}
+	if l.complete() {
+		events = append(events, newListUncompleted(command.list))
+	}
+	return events
+}
+
+func (l *list) handleCreateList(command createList) []event {
+	return []event{
+		newListCreated(command.id, command.name),
+	}
+}
+
+func (l *list) handleAddItem(command addItem) []event {
+	return []event{
+		newItemAdded(command.list, command.item, command.title),
+	}
+}
+
+func (l *list) handleCheckItem(command checkItem) []event {
+	events := []event{
+		newItemChecked(command.list, command.item),
+	}
+	if l.lastUnchecked() {
+		events = append(events, newListCompleted(command.list))
+	}
+	return events
+}
+
+func (l *list) apply(e event) {
 	switch event := e.(type) {
 	case listCreated:
-		return l.applyCreated(event)
+		l.applyCreated(event)
 	case itemAdded:
-		return l.applyItemAdded(event)
+		l.applyItemAdded(event)
 	case itemChecked:
-		return l.applyItemChecked(event)
+		l.applyItemChecked(event)
+	case itemUnchecked:
+		l.applyItemUnchecked(event)
+	case listCompleted:
+		l.applyCompleted(event)
+	case listUncompleted:
+		l.applyUncompleted(event)
 	default:
 		panic(fmt.Sprintf("unknown event %#v", event))
 	}
 }
 
-func (l *list) applyHistory(history []event) {
+func (l *list) applyHistory(history []event) []event {
 	for _, e := range history {
 		l.apply(e)
 	}
+	return history
 }
 
-func (l *list) applyCreated(e listCreated) []event {
-	if l.state != lsInitial {
-		panic("list already created")
-	}
+func (l *list) applyCreated(e listCreated) {
 	l.id = e.id
 	l.name = e.name
-	l.state = lsIncomplete
-	return []event{e}
 }
 
-func (l *list) applyItemAdded(e itemAdded) []event {
+func (l *list) applyItemAdded(e itemAdded) {
+	l.stateMachine.mustTransition(lsIncomplete)
 	l.items = append(
 		l.items,
 		newItem(e.item, e.title),
 	)
-	return []event{e}
 }
 
-func (l *list) applyItemChecked(e itemChecked) []event {
+func (l *list) applyItemChecked(e itemChecked) {
 	l.checkItem(e.item)
-	return l.checkCompleted(e)
 }
 
-func (l *list) applyCompleted(e listCompleted) []event {
-	l.state = lsCompleted
-	return []event{e}
+func (l *list) applyItemUnchecked(e itemUnchecked) {
+	l.uncheckItem(e.item)
 }
 
-func (l *list) checkCompleted(e itemChecked) []event {
-	if l.complete() {
-		return []event{e, newListCompleted(l.id)}
-	} else {
-		return []event{e}
-	}
+func (l *list) applyCompleted(e listCompleted) {
+	l.stateMachine.mustTransition(lsCompleted)
+}
+
+func (l *list) applyUncompleted(e listUncompleted) {
+	l.stateMachine.mustTransition(lsIncomplete)
 }
 
 func (l *list) checkItem(item uuid) {
+	l.setItem(item, true)
+}
+
+func (l *list) uncheckItem(item uuid) {
+	l.setItem(item, false)
+}
+
+func (l *list) setItem(item uuid, value bool) {
 	for i, current := range l.items {
 		if current.id == item {
-			if current.checked {
-				panic("item already checked")
+			if current.checked == value {
+				panic(fmt.Sprintf("item already %v", value))
 			}
-			current.checked = true
-			l.items[i] = current
 		}
+		l.items[i].checked = value
 	}
 }
 
 func (l *list) complete() bool {
+	return l.numUnchecked() == 0
+}
+
+func (l *list) lastUnchecked() bool {
+	return l.numUnchecked() == 1
+}
+
+func (l *list) numUnchecked() int {
+	var sum int
 	for _, current := range l.items {
 		if !current.checked {
-			return false
+			sum++
 		}
 	}
-	return true
+	return sum
 }
 
 type item struct {
@@ -133,13 +180,6 @@ type createList struct {
 
 func (c createList) AggregateID() uuid {
 	return c.id
-}
-
-func (c createList) Event() event {
-	return newListCreated(
-		c.id,
-		c.name,
-	)
 }
 
 func newCreateList(id uuid, name string) createList {
@@ -166,14 +206,22 @@ func newListCreated(id uuid, name string) listCreated {
 }
 
 type renameList struct {
-	id   string
+	list uuid
 	name string
 }
 
-type listRenamed struct{}
+type listRenamed struct {
+	list uuid
+	name string
+}
 
-type deleteList struct{}
-type listDeleted struct{}
+type deleteList struct {
+	list uuid
+}
+
+type listDeleted struct {
+	list uuid
+}
 
 type addItem struct {
 	list  uuid
@@ -183,14 +231,6 @@ type addItem struct {
 
 func (command addItem) AggregateID() uuid {
 	return command.list
-}
-
-func (command addItem) Event() event {
-	return newItemAdded(
-		command.list,
-		command.item,
-		command.title,
-	)
 }
 
 func newAddItem(list, item uuid, title string) addItem {
@@ -224,10 +264,6 @@ func (command checkItem) AggregateID() uuid {
 	return command.list
 }
 
-func (command checkItem) Event() event {
-	return newItemChecked(command.list, command.item)
-}
-
 func newCheckItem(list, item uuid) checkItem {
 	return checkItem{
 		item: item,
@@ -252,9 +288,27 @@ type uncheckItem struct {
 	item uuid
 }
 
+func newUncheckItem(list, item uuid) uncheckItem {
+	return uncheckItem{
+		list: list,
+		item: item,
+	}
+}
+
+func (command uncheckItem) AggregateID() uuid {
+	return command.list
+}
+
 type itemUnchecked struct {
 	list uuid
 	item uuid
+}
+
+func newItemUnchecked(list, item uuid) itemUnchecked {
+	return itemUnchecked{
+		list: list,
+		item: item,
+	}
 }
 
 type removeItem struct {
@@ -273,4 +327,58 @@ type listCompleted struct {
 
 func newListCompleted(list uuid) listCompleted {
 	return listCompleted{list: list}
+}
+
+type listUncompleted struct {
+	list uuid
+}
+
+func newListUncompleted(list uuid) listUncompleted {
+	return listUncompleted{list: list}
+}
+
+type listState int
+
+const (
+	lsInitial listState = iota
+	lsIncomplete
+	lsCompleted
+)
+
+type listStateMachine struct {
+	state listState
+}
+
+func newListStateMachine() *listStateMachine {
+	return &listStateMachine{
+		state: lsInitial,
+	}
+}
+
+func (m *listStateMachine) transition(to listState) bool {
+	if m.canTransition(to) {
+		m.state = to
+		return true
+	} else {
+		return false
+	}
+}
+
+func (m *listStateMachine) canTransition(to listState) bool {
+	switch to {
+	case lsCompleted:
+		return m.state == lsIncomplete
+	case lsIncomplete:
+		return m.state == lsInitial || m.state == lsCompleted
+	case lsInitial:
+		return false
+	default:
+		panic(fmt.Sprintln("unknown state", to))
+	}
+}
+
+func (l *listStateMachine) mustTransition(to listState) {
+	if !l.transition(to) {
+		panic(fmt.Sprintf("failed transition from %#v to %#v", l.state, to))
+	}
 }
