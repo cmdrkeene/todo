@@ -20,6 +20,36 @@ func (l *list) Handle(command command) (events []event) {
 	return l.applyHistory(l.dispatch(command))
 }
 
+func (l *list) applyHistory(history []event) []event {
+	for _, e := range history {
+		l.apply(e)
+	}
+	return history
+}
+
+func (l *list) apply(e event) {
+	switch event := e.(type) {
+	case listCreated:
+		l.applyCreated(event)
+	case itemAdded:
+		l.applyItemAdded(event)
+	case itemChecked:
+		l.applyItemChecked(event)
+	case itemRemoved:
+		l.applyItemRemoved(event)
+	case itemUnchecked:
+		l.applyItemUnchecked(event)
+	case listCompleted:
+		l.applyCompleted(event)
+	case listEmptied:
+		l.applyEmptied(event)
+	case listUncompleted:
+		l.applyUncompleted(event)
+	default:
+		panic(fmt.Sprintf("unknown event %#v", event))
+	}
+}
+
 func (l *list) dispatch(c command) []event {
 	switch command := c.(type) {
 	case addItem:
@@ -30,9 +60,55 @@ func (l *list) dispatch(c command) []event {
 		return l.handleCreateList(command)
 	case uncheckItem:
 		return l.handleUncheckItem(command)
+	case removeItem:
+		return l.handleRemoveItem(command)
 	default:
 		panic(fmt.Sprintf("unknown command %#v", command))
 	}
+}
+
+func (l *list) applyCreated(e listCreated) {
+	l.id = e.id
+	l.name = e.name
+}
+
+func (l *list) applyEmptied(e listEmptied) {
+	if len(l.items) != 0 {
+		panic("items not empty")
+	}
+
+	l.stateMachine.mustTransition(lsEmpty)
+}
+
+func (l *list) applyItemAdded(e itemAdded) {
+	l.items = append(
+		l.items,
+		newItem(e.item, e.title),
+	)
+
+	if len(l.items) == 1 {
+		l.stateMachine.mustTransition(lsIncomplete)
+	}
+}
+
+func (l *list) applyItemChecked(e itemChecked) {
+	l.checkItem(e.item)
+}
+
+func (l *list) applyItemUnchecked(e itemUnchecked) {
+	l.uncheckItem(e.item)
+}
+
+func (l *list) applyCompleted(e listCompleted) {
+	l.stateMachine.mustTransition(lsCompleted)
+}
+
+func (l *list) applyUncompleted(e listUncompleted) {
+	l.stateMachine.mustTransition(lsIncomplete)
+}
+
+func (l *list) applyItemRemoved(e itemRemoved) {
+	l.removeItem(e.item)
 }
 
 func (l *list) handleUncheckItem(command uncheckItem) []event {
@@ -67,59 +143,14 @@ func (l *list) handleCheckItem(command checkItem) []event {
 	return events
 }
 
-func (l *list) apply(e event) {
-	switch event := e.(type) {
-	case listCreated:
-		l.applyCreated(event)
-	case itemAdded:
-		l.applyItemAdded(event)
-	case itemChecked:
-		l.applyItemChecked(event)
-	case itemUnchecked:
-		l.applyItemUnchecked(event)
-	case listCompleted:
-		l.applyCompleted(event)
-	case listUncompleted:
-		l.applyUncompleted(event)
-	default:
-		panic(fmt.Sprintf("unknown event %#v", event))
+func (l *list) handleRemoveItem(command removeItem) []event {
+	events := []event{
+		newItemRemoved(command.list, command.item),
 	}
-}
-
-func (l *list) applyHistory(history []event) []event {
-	for _, e := range history {
-		l.apply(e)
+	if len(l.items) == 1 {
+		events = append(events, newListEmptied(command.list))
 	}
-	return history
-}
-
-func (l *list) applyCreated(e listCreated) {
-	l.id = e.id
-	l.name = e.name
-}
-
-func (l *list) applyItemAdded(e itemAdded) {
-	l.stateMachine.mustTransition(lsIncomplete)
-	l.items = append(
-		l.items,
-		newItem(e.item, e.title),
-	)
-}
-
-func (l *list) applyItemChecked(e itemChecked) {
-	l.checkItem(e.item)
-}
-
-func (l *list) applyItemUnchecked(e itemUnchecked) {
-	l.uncheckItem(e.item)
-}
-
-func (l *list) applyCompleted(e listCompleted) {
-	l.stateMachine.mustTransition(lsCompleted)
-}
-
-func (l *list) applyUncompleted(e listUncompleted) {
-	l.stateMachine.mustTransition(lsIncomplete)
+	return events
 }
 
 func (l *list) checkItem(item uuid) {
@@ -130,15 +161,29 @@ func (l *list) uncheckItem(item uuid) {
 	l.setItem(item, false)
 }
 
-func (l *list) setItem(item uuid, value bool) {
+func (l *list) removeItem(item uuid) {
+	l.deleteItemAtIndex(l.itemIndex(item))
+}
+
+func (l *list) deleteItemAtIndex(i int) {
+	l.items = append(l.items[:i], l.items[i+1:]...)
+}
+
+func (l *list) itemIndex(item uuid) int {
 	for i, current := range l.items {
 		if current.id == item {
-			if current.checked == value {
-				panic(fmt.Sprintf("item already %v", value))
-			}
+			return i
 		}
-		l.items[i].checked = value
 	}
+	panic("item not in list")
+}
+
+func (l *list) setItem(item uuid, value bool) {
+	i := l.itemIndex(item)
+	if l.items[i].checked == value {
+		panic(fmt.Sprintf("item already %v", value))
+	}
+	l.items[i].checked = value
 }
 
 func (l *list) complete() bool {
@@ -316,9 +361,37 @@ type removeItem struct {
 	item uuid
 }
 
+func newRemoveItem(list, item uuid) removeItem {
+	return removeItem{
+		list: list,
+		item: item,
+	}
+}
+
+func (command removeItem) AggregateID() uuid {
+	return command.list
+}
+
 type itemRemoved struct {
 	list uuid
 	item uuid
+}
+
+func newItemRemoved(list, item uuid) itemRemoved {
+	return itemRemoved{
+		list: list,
+		item: item,
+	}
+}
+
+type listEmptied struct {
+	list uuid
+}
+
+func newListEmptied(list uuid) listEmptied {
+	return listEmptied{
+		list: list,
+	}
 }
 
 type listCompleted struct {
@@ -340,7 +413,7 @@ func newListUncompleted(list uuid) listUncompleted {
 type listState int
 
 const (
-	lsInitial listState = iota
+	lsEmpty listState = iota
 	lsIncomplete
 	lsCompleted
 )
@@ -351,7 +424,7 @@ type listStateMachine struct {
 
 func newListStateMachine() *listStateMachine {
 	return &listStateMachine{
-		state: lsInitial,
+		state: lsEmpty,
 	}
 }
 
@@ -369,9 +442,9 @@ func (m *listStateMachine) canTransition(to listState) bool {
 	case lsCompleted:
 		return m.state == lsIncomplete
 	case lsIncomplete:
-		return m.state == lsInitial || m.state == lsCompleted
-	case lsInitial:
-		return false
+		return m.state == lsEmpty || m.state == lsCompleted
+	case lsEmpty:
+		return m.state == lsCompleted || m.state == lsIncomplete
 	default:
 		panic(fmt.Sprintln("unknown state", to))
 	}

@@ -2,6 +2,48 @@ package todo
 
 import "testing"
 
+func TestListRemove(t *testing.T) {
+	// given
+	list := newList(
+		newListCreated("a", "test"),
+		newItemAdded("a", "b", "Buy Milk"),
+		newItemAdded("a", "c", "Water Plants"),
+	)
+
+	// when
+	events := list.Handle(
+		newRemoveItem("a", "b"),
+	)
+
+	// then
+	matchEvents(
+		t,
+		events,
+		newItemRemoved("a", "b"),
+	)
+}
+
+func TestListRemoveAndEmpty(t *testing.T) {
+	// given
+	list := newList(
+		newListCreated("a", "test"),
+		newItemAdded("a", "b", "Buy Milk"),
+	)
+
+	// when
+	events := list.Handle(
+		newRemoveItem("a", "b"),
+	)
+
+	// then
+	matchEvents(
+		t,
+		events,
+		newItemRemoved("a", "b"),
+		newListEmptied("a"),
+	)
+}
+
 func TestListUncheck(t *testing.T) {
 	// given
 	list := newList(
