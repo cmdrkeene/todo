@@ -21,6 +21,7 @@ func TestListRemove(t *testing.T) {
 		events,
 		newItemRemoved("a", "b"),
 	)
+	matchListState(t, list, lsIncomplete)
 }
 
 func TestListRemoveAndEmpty(t *testing.T) {
@@ -42,6 +43,30 @@ func TestListRemoveAndEmpty(t *testing.T) {
 		newItemRemoved("a", "b"),
 		newListEmptied("a"),
 	)
+	matchListState(t, list, lsEmpty)
+}
+
+func TestListRemoveEmptyAndAdd(t *testing.T) {
+	// given
+	list := newList(
+		newListCreated("a", "test"),
+		newItemAdded("a", "b", "Buy Milk"),
+		newItemRemoved("a", "b"),
+		newListEmptied("a"),
+	)
+
+	// when
+	events := list.Handle(
+		newAddItem("a", "c", "Mow Lawn"),
+	)
+
+	// then
+	matchEvents(
+		t,
+		events,
+		newItemAdded("a", "c", "Mow Lawn"),
+	)
+	matchListState(t, list, lsIncomplete)
 }
 
 func TestListUncheck(t *testing.T) {
@@ -65,6 +90,7 @@ func TestListUncheck(t *testing.T) {
 		newItemUnchecked("a", "b"),
 		newListUncompleted("a"),
 	)
+	matchListState(t, list, lsIncomplete)
 }
 
 func TestListCheck(t *testing.T) {
@@ -86,6 +112,7 @@ func TestListCheck(t *testing.T) {
 		newItemChecked("a", "b"),
 		newListCompleted("a"),
 	)
+	matchListState(t, list, lsCompleted)
 }
 
 func TestListAdd(t *testing.T) {
@@ -105,6 +132,7 @@ func TestListAdd(t *testing.T) {
 		events,
 		newItemAdded("a", "b", "Buy Milk"),
 	)
+	matchListState(t, list, lsIncomplete)
 }
 
 func TestListCreate(t *testing.T) {
@@ -122,6 +150,13 @@ func TestListCreate(t *testing.T) {
 		events,
 		newListCreated("a", "test"),
 	)
+	matchListState(t, list, lsEmpty)
+}
+
+func matchListState(t *testing.T, l *list, s listState) {
+	if l.stateMachine.state != s {
+		gotWant(t, l.stateMachine.state, s)
+	}
 }
 
 func matchEvents(t *testing.T, got []event, want ...event) {
