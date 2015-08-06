@@ -5,12 +5,13 @@ import "fmt"
 type list struct {
 	id           uuid
 	name         string
-	items        []item
+	items        *itemCollection
 	stateMachine *listStateMachine
 }
 
 func newList(history ...event) *list {
 	l := &list{}
+	l.items = newItemCollection()
 	l.stateMachine = newListStateMachine()
 	l.applyHistory(history)
 	return l
@@ -73,7 +74,7 @@ func (l *list) applyCreated(e listCreated) {
 }
 
 func (l *list) applyEmptied(e listEmptied) {
-	if len(l.items) != 0 {
+	if !l.items.Empty() {
 		panic("items not empty")
 	}
 
@@ -81,22 +82,21 @@ func (l *list) applyEmptied(e listEmptied) {
 }
 
 func (l *list) applyItemAdded(e itemAdded) {
-	l.items = append(
-		l.items,
+	l.items.Add(
 		newItem(e.item, e.title),
 	)
 
-	if len(l.items) == 1 {
+	if l.items.Size() == 1 {
 		l.stateMachine.mustTransition(lsIncomplete)
 	}
 }
 
 func (l *list) applyItemChecked(e itemChecked) {
-	l.checkItem(e.item)
+	l.items.Set(e.item, true)
 }
 
 func (l *list) applyItemUnchecked(e itemUnchecked) {
-	l.uncheckItem(e.item)
+	l.items.Set(e.item, false)
 }
 
 func (l *list) applyCompleted(e listCompleted) {
@@ -108,16 +108,18 @@ func (l *list) applyUncompleted(e listUncompleted) {
 }
 
 func (l *list) applyItemRemoved(e itemRemoved) {
-	l.removeItem(e.item)
+	l.items.Remove(e.item)
 }
 
 func (l *list) handleUncheckItem(command uncheckItem) []event {
 	events := []event{
 		newItemUnchecked(command.list, command.item),
 	}
-	if l.complete() {
+
+	if l.items.Size() == 1 {
 		events = append(events, newListUncompleted(command.list))
 	}
+
 	return events
 }
 
@@ -137,9 +139,11 @@ func (l *list) handleCheckItem(command checkItem) []event {
 	events := []event{
 		newItemChecked(command.list, command.item),
 	}
-	if l.lastUnchecked() {
+
+	if l.items.Unchecked() == 1 {
 		events = append(events, newListCompleted(command.list))
 	}
+
 	return events
 }
 
@@ -147,61 +151,10 @@ func (l *list) handleRemoveItem(command removeItem) []event {
 	events := []event{
 		newItemRemoved(command.list, command.item),
 	}
-	if len(l.items) == 1 {
+	if l.items.Size() == 1 {
 		events = append(events, newListEmptied(command.list))
 	}
 	return events
-}
-
-func (l *list) checkItem(item uuid) {
-	l.setItem(item, true)
-}
-
-func (l *list) uncheckItem(item uuid) {
-	l.setItem(item, false)
-}
-
-func (l *list) removeItem(item uuid) {
-	l.deleteItemAtIndex(l.itemIndex(item))
-}
-
-func (l *list) deleteItemAtIndex(i int) {
-	l.items = append(l.items[:i], l.items[i+1:]...)
-}
-
-func (l *list) itemIndex(item uuid) int {
-	for i, current := range l.items {
-		if current.id == item {
-			return i
-		}
-	}
-	panic("item not in list")
-}
-
-func (l *list) setItem(item uuid, value bool) {
-	i := l.itemIndex(item)
-	if l.items[i].checked == value {
-		panic(fmt.Sprintf("item already %v", value))
-	}
-	l.items[i].checked = value
-}
-
-func (l *list) complete() bool {
-	return l.numUnchecked() == 0
-}
-
-func (l *list) lastUnchecked() bool {
-	return l.numUnchecked() == 1
-}
-
-func (l *list) numUnchecked() int {
-	var sum int
-	for _, current := range l.items {
-		if !current.checked {
-			sum++
-		}
-	}
-	return sum
 }
 
 type item struct {
@@ -216,6 +169,60 @@ func newItem(id uuid, title string) item {
 		title:   title,
 		checked: false,
 	}
+}
+
+type itemCollection struct {
+	items []item
+}
+
+func newItemCollection() *itemCollection {
+	return &itemCollection{}
+}
+
+func (c *itemCollection) Add(item item) {
+	c.items = append(c.items, item)
+}
+
+func (c *itemCollection) Set(item uuid, value bool) {
+	index := c.indexOf(item)
+	if c.items[index].checked == value {
+		panic(
+			fmt.Sprintf("item already %v", value),
+		)
+	}
+	c.items[index].checked = value
+}
+
+func (c *itemCollection) Remove(item uuid) {
+	index := c.indexOf(item)
+	c.items = append(c.items[:index], c.items[index+1:]...)
+}
+
+func (c *itemCollection) Empty() bool {
+	return c.Size() == 0
+}
+
+func (c *itemCollection) Size() int {
+	return len(c.items)
+}
+
+func (c *itemCollection) Unchecked() int {
+	var sum int
+	for _, current := range c.items {
+		if !current.checked {
+			sum++
+		}
+	}
+	return sum
+}
+
+func (c *itemCollection) indexOf(item uuid) int {
+	for i, current := range c.items {
+		if current.id == item {
+			return i
+		}
+	}
+	panic("item not in list")
 }
 
 type createList struct {
