@@ -2,6 +2,29 @@ package todo
 
 import "testing"
 
+func TestListRename(t *testing.T) {
+	// given
+	list := newList(
+		newListCreated("a", "test"),
+	)
+
+	// when
+	events := list.Handle(
+		newRenameList("a", "new test"),
+	)
+
+	// then
+	matchEvents(
+		t,
+		events,
+		newListRenamed("a", "new test"),
+	)
+
+	if list.name != "new test" {
+		gotWant(t, list.name, "new test")
+	}
+}
+
 func TestListRemove(t *testing.T) {
 	// given
 	list := newList(

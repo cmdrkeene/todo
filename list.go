@@ -46,6 +46,8 @@ func (l *list) apply(e event) {
 		l.applyEmptied(event)
 	case listUncompleted:
 		l.applyUncompleted(event)
+	case listRenamed:
+		l.applyRenamed(event)
 	default:
 		panic(fmt.Sprintf("unknown event %#v", event))
 	}
@@ -63,9 +65,15 @@ func (l *list) dispatch(c command) []event {
 		return l.handleUncheckItem(command)
 	case removeItem:
 		return l.handleRemoveItem(command)
+	case renameList:
+		return l.handleRenameList(command)
 	default:
 		panic(fmt.Sprintf("unknown command %#v", command))
 	}
+}
+
+func (l *list) applyRenamed(e listRenamed) {
+	l.name = e.name
 }
 
 func (l *list) applyCreated(e listCreated) {
@@ -109,6 +117,12 @@ func (l *list) applyUncompleted(e listUncompleted) {
 
 func (l *list) applyItemRemoved(e itemRemoved) {
 	l.items.Remove(e.item)
+}
+
+func (l *list) handleRenameList(command renameList) []event {
+	return []event{
+		newListRenamed(command.list, command.name),
+	}
 }
 
 func (l *list) handleUncheckItem(command uncheckItem) []event {
@@ -262,9 +276,27 @@ type renameList struct {
 	name string
 }
 
+func newRenameList(list uuid, name string) renameList {
+	return renameList{
+		list: list,
+		name: name,
+	}
+}
+
+func (command renameList) AggregateID() uuid {
+	return command.list
+}
+
 type listRenamed struct {
 	list uuid
 	name string
+}
+
+func newListRenamed(list uuid, name string) listRenamed {
+	return listRenamed{
+		list: list,
+		name: name,
+	}
 }
 
 type deleteList struct {
