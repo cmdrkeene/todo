@@ -2,6 +2,22 @@ package todo
 
 import "testing"
 
+func TestListPanicsOnUnknownEvent(t *testing.T) {
+	defer func() {
+		t.SkipNow()
+	}()
+	newList(nerfEvent{})
+	t.Fail()
+}
+
+func TestListHandlePanicsOnUnknownEvent(t *testing.T) {
+	defer func() {
+		t.SkipNow()
+	}()
+	newList().Handle(nerfCommand{})
+	t.Fail()
+}
+
 func TestListRename(t *testing.T) {
 	// given
 	list := newList(
@@ -180,29 +196,4 @@ func matchListState(t *testing.T, l *list, s listState) {
 	if l.stateMachine.state != s {
 		gotWant(t, l.stateMachine.state, s)
 	}
-}
-
-func matchEvents(t *testing.T, got []event, want ...event) {
-	if !eventsMatch(got, want...) {
-		gotWant(t, got, want)
-	}
-}
-
-func eventsMatch(got []event, want ...event) bool {
-	if len(got) != len(want) {
-		return false
-	}
-
-	for i, e := range want {
-		if got[i] != e {
-			return false
-		}
-	}
-
-	return true
-}
-
-func gotWant(t *testing.T, got, want interface{}) {
-	t.Errorf("got  %#v", got)
-	t.Errorf("want %#v", want)
 }

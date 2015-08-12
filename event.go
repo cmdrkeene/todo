@@ -1,5 +1,7 @@
 package todo
 
+import "time"
+
 type uuid string
 
 func newID() uuid {
@@ -16,24 +18,30 @@ type command interface {
 
 type event interface{}
 
-type eventStore interface {
-	History(uuid) []event
-	Add(...event)
-}
-
-// eventStore interface is necessarily simple, but
-// we must record timing and version information
-// we could use a vector clock approach and panic when recorded version
-// is equal to or greater than our newly incremented version
-// it's simpler to keep timing off the raw event structs
-// internal store should use a container
-type eventRecord struct {
-	eventID   uuid
-	eventType string
-	event     event
+type eventStream interface {
+	Append(uuid, ...event)
+	Find(uuid) []event
 }
 
 type eventBus interface {
 	Publish(event)
 	Subscribe(event) chan event
+}
+
+type eventRecorder interface {
+	FindRecords(uuid) []eventRecord
+	FindRecordsByEventType(string) []eventRecord
+	FindRecordsByEventID(uuid) []eventRecord
+}
+
+type eventRecord struct {
+	aggregateID uuid
+	data        event
+	eventID     uuid
+	eventType   string
+	occurred    time.Time
+}
+
+type eventRecordScanner interface {
+	Scan() chan eventRecord
 }

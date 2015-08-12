@@ -200,9 +200,7 @@ func (c *itemCollection) Add(item item) {
 func (c *itemCollection) Set(item uuid, value bool) {
 	index := c.indexOf(item)
 	if c.items[index].checked == value {
-		panic(
-			fmt.Sprintf("item already %v", value),
-		)
+		panic(fmt.Sprintf("item already %v", value))
 	}
 	c.items[index].checked = value
 }
