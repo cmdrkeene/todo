@@ -38,26 +38,21 @@ func (s *listService) Uncheck(list, item uuid) {
 }
 
 func (s *listService) issue(cmd command) {
-	s.save(s.dispatch(cmd))
+	s.save(s.handle(s.list(cmd), cmd))
 }
 
-func (s *listService) dispatch(cmd command) (uuid, []event) {
-	switch cmd.(type) {
-	case createList:
-		return s.handle(newList(), cmd)
-	default:
-		return s.handle(s.existingList(cmd.AggregateID()), cmd)
-	}
+func (s *listService) save(list uuid, changes []event) {
+	s.stream.Append(list, changes...)
 }
 
 func (s *listService) handle(list *list, cmd command) (uuid, []event) {
 	return list.id, list.Handle(cmd)
 }
 
-func (s *listService) existingList(id uuid) *list {
-	return newList(s.stream.Find(id)...)
-}
-
-func (s *listService) save(list uuid, changes []event) {
-	s.stream.Append(list, changes...)
+func (s *listService) list(cmd command) *list {
+	if _, ok := cmd.(createList); ok {
+		return newList()
+	} else {
+		return newList(s.stream.Find(cmd.AggregateID())...)
+	}
 }
