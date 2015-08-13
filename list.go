@@ -258,7 +258,7 @@ func newCreateList(id uuid, name string) createList {
 }
 
 type listCreated struct {
-	id   uuid
+	id   uuid // todo rename to "list" or rename "list" to "id"
 	name string
 }
 

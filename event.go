@@ -2,12 +2,6 @@ package todo
 
 import "time"
 
-type uuid string
-
-func newID() uuid {
-	return "new"
-}
-
 type aggregate interface {
 	Handle(command) []event
 }
@@ -23,9 +17,18 @@ type eventStream interface {
 	Find(uuid) []event
 }
 
+// eventRecord is a storage mechanism for high level events
+type eventRecord struct {
+	aggregateID uuid
+	event       event
+	eventID     uuid
+	eventType   string
+	occurred    time.Time
+}
+
 type eventBus interface {
-	Publish(event)
-	Subscribe(event) chan event
+	Publish(eventRecord)
+	Subscribe() chan eventRecord
 }
 
 type eventRecorder interface {
@@ -34,14 +37,6 @@ type eventRecorder interface {
 	FindRecordsByEventID(uuid) []eventRecord
 }
 
-type eventRecord struct {
-	aggregateID uuid
-	data        event
-	eventID     uuid
-	eventType   string
-	occurred    time.Time
-}
-
-type eventRecordScanner interface {
+type eventScanner interface {
 	Scan() chan eventRecord
 }

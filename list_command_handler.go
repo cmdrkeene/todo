@@ -2,16 +2,15 @@ package todo
 
 import "net/http"
 
-type listHandler struct {
-	router  *http.ServeMux
+type listCommandHandler struct {
 	service *listService
 }
 
-func newListHandler(s *listService) *listHandler {
-	return &listHandler{service: s}
+func newListCommandHandler(s *listService) *listCommandHandler {
+	return &listCommandHandler{service: s}
 }
 
-func (h *listHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *listCommandHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/List/Add":
 		h.add(w, r)
@@ -29,7 +28,7 @@ func (h *listHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *listHandler) add(w http.ResponseWriter, r *http.Request) {
+func (h *listCommandHandler) add(w http.ResponseWriter, r *http.Request) {
 	h.sendID(
 		w,
 		h.service.Add(
@@ -39,7 +38,7 @@ func (h *listHandler) add(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
-func (h *listHandler) create(w http.ResponseWriter, r *http.Request) {
+func (h *listCommandHandler) create(w http.ResponseWriter, r *http.Request) {
 	h.sendID(
 		w,
 		h.service.Create(
@@ -48,11 +47,11 @@ func (h *listHandler) create(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
-func (h *listHandler) sendID(w http.ResponseWriter, id uuid) {
+func (h *listCommandHandler) sendID(w http.ResponseWriter, id uuid) {
 	w.Write([]byte(id))
 }
 
-func (h *listHandler) remove(w http.ResponseWriter, r *http.Request) {
+func (h *listCommandHandler) remove(w http.ResponseWriter, r *http.Request) {
 	list, item, valid := h.removeParams(r)
 	if valid {
 		h.service.Remove(list, item)
@@ -62,13 +61,13 @@ func (h *listHandler) remove(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *listHandler) removeParams(r *http.Request) (list, item uuid, valid bool) {
+func (h *listCommandHandler) removeParams(r *http.Request) (list, item uuid, valid bool) {
 	return h.listID(r),
 		h.itemID(r),
 		h.allPresent(h.listID(r), h.itemID(r))
 }
 
-func (h *listHandler) allPresent(all ...uuid) bool {
+func (h *listCommandHandler) allPresent(all ...uuid) bool {
 	for _, u := range all {
 		if u == "" {
 			return false
@@ -77,37 +76,37 @@ func (h *listHandler) allPresent(all ...uuid) bool {
 	return true
 }
 
-func (h *listHandler) rename(w http.ResponseWriter, r *http.Request) {
+func (h *listCommandHandler) rename(w http.ResponseWriter, r *http.Request) {
 	h.service.Rename(h.listID(r), h.name(r))
 	ok(w)
 }
 
-func (h *listHandler) check(w http.ResponseWriter, r *http.Request) {
+func (h *listCommandHandler) check(w http.ResponseWriter, r *http.Request) {
 	h.service.Check(h.listID(r), h.itemID(r))
 	ok(w)
 }
 
-func (h *listHandler) uncheck(w http.ResponseWriter, r *http.Request) {
+func (h *listCommandHandler) uncheck(w http.ResponseWriter, r *http.Request) {
 	h.service.Uncheck(h.listID(r), h.itemID(r))
 	ok(w)
 }
 
-func (h *listHandler) name(r *http.Request) string {
+func (h *listCommandHandler) name(r *http.Request) string {
 	const nameKey = "name"
 	return r.FormValue(nameKey)
 }
 
-func (h *listHandler) title(r *http.Request) string {
+func (h *listCommandHandler) title(r *http.Request) string {
 	const titleKey = "title"
 	return r.FormValue(titleKey)
 }
 
-func (h *listHandler) listID(r *http.Request) uuid {
+func (h *listCommandHandler) listID(r *http.Request) uuid {
 	const listKey = "list"
 	return uuid(r.FormValue(listKey))
 }
 
-func (h *listHandler) itemID(r *http.Request) uuid {
+func (h *listCommandHandler) itemID(r *http.Request) uuid {
 	const itemKey = "item"
 	return uuid(r.FormValue(itemKey))
 }
