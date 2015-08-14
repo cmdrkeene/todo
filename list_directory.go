@@ -12,6 +12,10 @@ type listDirectory struct {
 	entries []listDirectoryEntry
 }
 
+func newListDirectory() *listDirectory {
+	return &listDirectory{}
+}
+
 type listDirectoryEntry struct {
 	Created time.Time
 	ID      uuid
@@ -26,22 +30,22 @@ func newListDirectoryEntry(created time.Time, id uuid, name string) listDirector
 	}
 }
 
-func (d listDirectory) Add(entry listDirectoryEntry) {
+func (d *listDirectory) Add(entry listDirectoryEntry) {
 	d.entries = append(d.entries, entry)
 }
 
-func (d listDirectory) Remove(list uuid) {
+func (d *listDirectory) Remove(list uuid) {
 	d.removeAtIndex(d.index(list))
 }
 
-func (d listDirectory) removeAtIndex(index int) {
+func (d *listDirectory) removeAtIndex(index int) {
 	d.entries = append(
 		d.entries[:index],
 		d.entries[index+1:]...,
 	)
 }
 
-func (d listDirectory) index(list uuid) int {
+func (d *listDirectory) index(list uuid) int {
 	for i, l := range d.entries {
 		if l.ID == list {
 			return i
@@ -52,11 +56,8 @@ func (d listDirectory) index(list uuid) int {
 	)
 }
 
-func (d listDirectory) Rename(list uuid, name string) {
-	d.entries[d.index(list)] = listDirectoryEntry{
-		ID:   list,
-		Name: name,
-	}
+func (d *listDirectory) Rename(list uuid, name string) {
+	d.entries[d.index(list)].Name = name
 }
 
 type listDirectoryWriter struct {
