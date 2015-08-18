@@ -32,6 +32,8 @@ func (l *list) apply(e event) {
 	switch event := e.(type) {
 	case listCreated:
 		l.applyCreated(event)
+	case listDeleted:
+		l.applyDeleted(event)
 	case itemAdded:
 		l.applyItemAdded(event)
 	case itemChecked:
@@ -61,6 +63,8 @@ func (l *list) dispatch(c command) []event {
 		return l.handleCheckItem(command)
 	case createList:
 		return l.handleCreateList(command)
+	case deleteList:
+		return l.handleDeleteList(command)
 	case uncheckItem:
 		return l.handleUncheckItem(command)
 	case removeItem:
@@ -79,6 +83,10 @@ func (l *list) applyRenamed(e listRenamed) {
 func (l *list) applyCreated(e listCreated) {
 	l.id = e.id
 	l.name = e.name
+}
+
+func (l *list) applyDeleted(e listDeleted) {
+	l.stateMachine.mustTransition(lsDeleted)
 }
 
 func (l *list) applyEmptied(e listEmptied) {
@@ -140,6 +148,12 @@ func (l *list) handleUncheckItem(command uncheckItem) []event {
 func (l *list) handleCreateList(command createList) []event {
 	return []event{
 		newListCreated(command.id, command.name),
+	}
+}
+
+func (l *list) handleDeleteList(command deleteList) []event {
+	return []event{
+		newListDeleted(command.list),
 	}
 }
 
@@ -301,8 +315,24 @@ type deleteList struct {
 	list uuid
 }
 
+func (command deleteList) AggregateID() uuid {
+	return command.list
+}
+
+func newDeleteList(list uuid) deleteList {
+	return deleteList{
+		list: list,
+	}
+}
+
 type listDeleted struct {
 	list uuid
+}
+
+func newListDeleted(list uuid) listDeleted {
+	return listDeleted{
+		list: list,
+	}
 }
 
 type addItem struct {
@@ -453,6 +483,7 @@ const (
 	lsEmpty listState = iota
 	lsIncomplete
 	lsCompleted
+	lsDeleted
 )
 
 type listStateMachine struct {
@@ -482,6 +513,8 @@ func (m *listStateMachine) canTransition(to listState) bool {
 		return m.state == lsEmpty || m.state == lsCompleted
 	case lsEmpty:
 		return m.state == lsCompleted || m.state == lsIncomplete
+	case lsDeleted:
+		return true
 	default:
 		panic(fmt.Sprintln("unknown state", to))
 	}

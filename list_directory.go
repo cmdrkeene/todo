@@ -12,8 +12,10 @@ type listDirectory struct {
 	entries []listDirectoryEntry
 }
 
-func newListDirectory() *listDirectory {
-	return &listDirectory{}
+func newListDirectory(entries ...listDirectoryEntry) *listDirectory {
+	return &listDirectory{
+		entries: entries,
+	}
 }
 
 type listDirectoryEntry struct {
@@ -30,8 +32,8 @@ func newListDirectoryEntry(created time.Time, id uuid, name string) listDirector
 	}
 }
 
-func (d *listDirectory) Add(entry listDirectoryEntry) {
-	d.entries = append(d.entries, entry)
+func (d *listDirectory) Add(entries ...listDirectoryEntry) {
+	d.entries = append(d.entries, entries...)
 }
 
 func (d *listDirectory) Remove(list uuid) {
@@ -62,25 +64,25 @@ func (d *listDirectory) Rename(list uuid, name string) {
 
 type listDirectoryWriter struct {
 	bus       eventBus
-	directory listDirectory
+	directory *listDirectory
 	scanner   eventScanner
 }
 
-func newListDirectoryWriter(b eventBus, s eventScanner) *listDirectoryWriter {
+func newListDirectoryWriter(d *listDirectory, b eventBus, s eventScanner) *listDirectoryWriter {
 	return &listDirectoryWriter{
 		bus:       b,
-		directory: listDirectory{},
+		directory: d,
 		scanner:   s,
 	}
 }
 
-func (l *listDirectoryWriter) restore() {
+func (l *listDirectoryWriter) Restore() {
 	for record := range l.scanner.Scan() {
 		l.handle(record)
 	}
 }
 
-func (l *listDirectoryWriter) subscribe() {
+func (l *listDirectoryWriter) Subscribe() {
 	for record := range l.bus.Subscribe() {
 		l.handle(record)
 	}
@@ -107,26 +109,16 @@ func (l *listDirectoryWriter) newEntry(record eventRecord, event listCreated) li
 	)
 }
 
-type listDirectoryRepository interface {
-	Get() (listDirectory, error)
-}
-
 type listDirectoryHandler struct {
-	repo listDirectoryRepository
+	directory *listDirectory
 }
 
 func (l *listDirectoryHandler) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
-	l.encode(w, l.get())
+	l.encode(w, l.directory)
 }
 
-func (l *listDirectoryHandler) encode(w http.ResponseWriter, d listDirectory) {
+func (l *listDirectoryHandler) encode(w http.ResponseWriter, d *listDirectory) {
 	panicOnError(
 		json.NewEncoder(w).Encode(d),
 	)
-}
-
-func (l *listDirectoryHandler) get() listDirectory {
-	d, err := l.repo.Get()
-	panicOnError(err)
-	return d
 }

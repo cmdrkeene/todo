@@ -32,7 +32,7 @@ type eventBus interface {
 }
 
 type eventRecorder interface {
-	FindRecords(uuid) []eventRecord
+	// FindRecords(uuid) []eventRecord
 	FindRecordsByEventType(string) []eventRecord
 	FindRecordsByEventID(uuid) []eventRecord
 }

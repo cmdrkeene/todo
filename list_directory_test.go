@@ -25,7 +25,34 @@ func TestListDirectory(t *testing.T) {
 	)
 }
 
-func TestListDirectoryWriter(t *testing.T)  {}
+func TestListDirectoryWriterRestore(t *testing.T) {
+	// given
+	scanner := newMemoryScanner()
+	scanner.addEvents(
+		newListCreated("a", "test a"),
+		newListCreated("b", "test b"),
+		newListRenamed("b", "test b+"),
+		newListDeleted("b"),
+	)
+	writer := newListDirectoryWriter(
+		newListDirectory(),
+		newMemoryBus(),
+		scanner,
+	)
+
+	// when
+	writer.Restore()
+
+	// then
+	want := newListDirectory()
+	want.Add(newListDirectoryEntry(scanner.recorded, "a", "test a"))
+	mustDeepEqual(
+		t,
+		writer.directory,
+		want,
+	)
+}
+
 func TestListDirectoryHandler(t *testing.T) {}
 func TestListMemoryRepository(t *testing.T) {}
 
