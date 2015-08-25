@@ -1,9 +1,6 @@
 package todo
 
-import (
-	"fmt"
-	"time"
-)
+import "time"
 
 type memoryScanner struct {
 	records  []eventRecord
@@ -18,12 +15,7 @@ func newMemoryScanner() *memoryScanner {
 
 func (s *memoryScanner) addEvents(events ...event) {
 	for _, e := range events {
-		s.records = append(s.records, eventRecord{
-			occurred:  s.recorded,
-			eventID:   newID(),
-			eventType: fmt.Sprintf("%t", e),
-			event:     e,
-		})
+		s.records = append(s.records, newEventRecord("none", e))
 	}
 }
 

@@ -1,6 +1,9 @@
 package todo
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type aggregate interface {
 	Handle(command) []event
@@ -24,6 +27,20 @@ type eventRecord struct {
 	eventID     uuid
 	eventType   string
 	occurred    time.Time
+}
+
+func newEventRecord(aggregateID uuid, event event) eventRecord {
+	return eventRecord{
+		aggregateID: aggregateID,
+		event:       event,
+		eventID:     newID(),
+		eventType:   eventType(event),
+		occurred:    time.Now(),
+	}
+}
+
+func eventType(e event) string {
+	return fmt.Sprintf("%t", e)
 }
 
 type eventBus interface {
